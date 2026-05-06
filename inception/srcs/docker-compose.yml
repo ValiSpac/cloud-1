@@ -1,0 +1,63 @@
+---
+version: '3.5'
+services:
+  mariadb:
+    container_name: mariadb
+    networks:
+      - inception
+    build:
+      context: requirements/mariadb
+      args:
+        SQL_DATABASE: ${SQL_DATABASE}
+        SQL_USER: ${SQL_USER}
+        SQL_PASSWORD: ${SQL_PASSWORD}
+        SQL_ROOT_PASSWORD: ${SQL_ROOT_PASSWORD}
+    env_file: .env
+    image: mariadb
+    volumes:
+      - mariadb:/var/lib/mysql
+    restart: on-failure
+  nginx:
+    container_name: nginx
+    networks:
+      - inception
+    build: requirements/nginx
+    image: nginx
+    depends_on:
+      - wordpress
+    env_file: .env
+    volumes:
+      - wordpress:/var/www/html
+    ports:
+      - "443:443"
+    restart: on-failure
+  wordpress:
+    container_name: wordpress
+    networks:
+      - inception
+    depends_on:
+      - mariadb
+    build: requirements/wordpress
+    image: wordpress
+    env_file: .env
+    volumes:
+      - wordpress:/var/www/html
+    restart: on-failure
+
+volumes:
+  wordpress:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/vali/data/wordpress'
+  mariadb:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/home/vali/data/mariadb'
+
+networks:
+  inception:
+    driver: bridge

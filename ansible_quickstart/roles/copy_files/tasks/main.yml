@@ -1,0 +1,22 @@
+---
+- name: check if data file exists
+  stat:
+    path: /home/vali/data
+  register: data_check
+
+- name: Create directories
+  ansible.builtin.command:
+    cmd: mkdir -p /home/vali/data
+  when: not data_check.stat.exists
+
+- name: check if inception file exists
+  stat:
+    path: /home/vali/inception
+  register: inc_check
+
+- name: Copy inception files
+  ansible.builtin.copy:
+    src: ../../../../inception
+    dest: /home/vali/
+    mode: 0666
+#  when: not inc_check.stat.exists

@@ -1,0 +1,5 @@
+---
+- name: Run makefile for docker compose
+  ansible.builtin.command:
+    chdir: /home/vali/inception
+    cmd: make up

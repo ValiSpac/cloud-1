@@ -1,5 +1,5 @@
 
-COMPOSE := docker-compose -f srcs/docker-compose.yml
+COMPOSE := docker compose -f srcs/docker-compose.yml
 VOLUME := /home/vali/data/mariadb/ /home/vali/data/wordpress
 
 all: up

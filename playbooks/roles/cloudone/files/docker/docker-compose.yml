@@ -1,0 +1,125 @@
+name: cloudone
+
+services:
+  mariadb:
+    image: mariadb
+    build:
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+    container_name: mariadb
+    env_file: ./.env
+    secrets:
+      - db_root_pwd
+      - db_user_pwd
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - cloudone
+    restart: unless-stopped
+    expose:
+      - "3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$$(cat /run/secrets/db_root_pwd) --silent"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  wordpress:
+    image: wordpress
+    build:
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    container_name: wordpress
+    env_file: ./.env
+    secrets:
+      - db_user_pwd
+      - wp_admin_pwd
+      - wp_user_pwd
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - wp-data:/var/www/html
+    networks:
+      - cloudone
+    restart: unless-stopped
+    expose:
+      - "${PHP_FPM_PORT}"
+
+  nginx:
+    image: nginx
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    env_file: ./.env
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - wp-data:/var/www/html:RO
+    networks:
+      - cloudone
+    restart: unless-stopped
+
+  redis:
+    image: redis
+    build:
+      context: ./requirements/bonus/redis
+      dockerfile: Dockerfile
+    container_name: redis
+    networks:
+      - cloudone
+    expose:
+      - "6379"
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin
+    build:
+      context: ./requirements/bonus/phpmyadmin
+      dockerfile: Dockerfile
+    container_name: phpmyadmin
+    env_file: ./.env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8081:8080"
+    networks:
+      - cloudone
+    restart: unless-stopped
+
+networks:
+  cloudone:
+    name: cloudone
+    driver: bridge
+
+volumes:
+  db-data:
+    name: db-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DB_HOST_PATH}
+  wp-data:
+    name: wp-data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${WP_HOST_PATH}
+
+secrets:
+  db_root_pwd:
+    file: ./secrets/db_root_pwd
+  db_user_pwd:
+    file: ./secrets/db_user_pwd
+  wp_admin_pwd:
+    file: ./secrets/wp_admin_pwd
+  wp_user_pwd:
+    file: ./secrets/wp_user_pwd

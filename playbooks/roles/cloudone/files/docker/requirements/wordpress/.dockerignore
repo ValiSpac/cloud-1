@@ -1,0 +1,4 @@
+tools/*
+!tools/entry.sh
+conf/*
+!conf/wp-config.php

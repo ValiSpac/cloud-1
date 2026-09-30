@@ -1,0 +1,46 @@
+---
+- name: Cloud-1 - Destroy Deployment
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars_prompt:
+    - name: confirm_destroy
+      prompt: "Are you sure you want to destroy the deployment? Type 'yes' to confirm"
+      private: no
+
+  tasks:
+    - name: Abort if not confirmed
+      fail:
+        msg: "Destruction cancelled"
+      when: confirm_destroy != 'yes'
+
+    - name: Stop and remove all containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_root }}"
+        state: absent
+        remove_volumes: yes
+      ignore_errors: yes
+
+    - name: Remove Docker volumes
+      command: docker volume rm db-data wp-data
+      ignore_errors: yes
+
+    - name: Remove application directory
+      file:
+        path: "{{ app_root }}"
+        state: absent
+
+    - name: Remove data directory
+      file:
+        path: "{{ data_root }}"
+        state: absent
+      when: confirm_destroy == 'yes'
+
+    - name: Prune Docker system
+      command: docker system prune -af --volumes
+      ignore_errors: yes
+
+    - name: Destruction complete
+      debug:
+        msg: "All resources have been removed from the server"

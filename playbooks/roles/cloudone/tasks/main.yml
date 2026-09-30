@@ -1,0 +1,102 @@
+---
+- name: Stop existing containers if running
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_root }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Clean up old Docker resources
+  shell: |
+    docker system prune -f 2>/dev/null || true
+  changed_when: false
+  ignore_errors: yes
+
+- name: Copy docker-compose files to server
+  copy:
+    src: docker/
+    dest: "{{ app_root }}/"
+    mode: preserve
+  register: docker_files_copied
+
+- name: Ensure requirements directories exist
+  file:
+    path: "{{ app_root }}/requirements"
+    state: directory
+    mode: '0755'
+
+- name: Create secrets directory
+  file:
+    path: "{{ app_root }}/secrets"
+    state: directory
+    mode: '0700'
+
+- name: Write secret files
+  copy:
+    content: "{{ item.content }}"
+    dest: "{{ app_root }}/secrets/{{ item.name }}"
+    mode: '0600'
+  loop:
+    - { name: db_root_pwd, content: "{{ mysql_root_password }}" }
+    - { name: db_user_pwd, content: "{{ mysql_password }}" }
+    - { name: wp_admin_pwd, content: "{{ wp_admin_password }}" }
+    - { name: wp_user_pwd, content: "{{ wp_user_password }}" }
+  no_log: true
+
+- name: Template environment file
+  template:
+    src: env.j2
+    dest: "{{ app_root }}/.env"
+    mode: '0600'
+  register: env_file
+
+- name: Ensure data directories exist with correct permissions
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ db_host_path }}"
+    - "{{ wp_host_path }}"
+
+- name: Build Docker images
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_root }}"
+    build: always
+    state: present
+    pull: missing
+  register: compose_build
+
+- name: Display compose output
+  debug:
+    var: compose_build
+  when: compose_build.changed
+
+- name: Wait for MariaDB to be healthy
+  command: docker inspect --format='{{ '{{' }}.State.Health.Status{{ '}}' }}' mariadb
+  register: mariadb_health
+  until: mariadb_health.stdout == 'healthy'
+  retries: 30
+  delay: 5
+  changed_when: false
+
+- name: Wait for WordPress to respond
+  uri:
+    url: "https://{{ domain_name }}"
+    validate_certs: no
+    status_code: [200, 301, 302, 303]
+    timeout: 10
+  register: wp_response
+  until: wp_response.status in [200, 301, 302, 303]
+  retries: 30
+  delay: 10
+
+- name: Display deployment success message
+  debug:
+    msg: |
+      Deployment Successful!
+      WordPress:  https://{{ domain_name }}
+      Admin:      https://{{ domain_name }}/wp-admin
+      Admin User: {{ wp_admin_user }}
+      Access phpmyadmin via tunnel:
+        ssh -L 8081:localhost:8081 root@{{ ansible_host }}
+        Then open: http://localhost:8081

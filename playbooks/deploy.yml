@@ -1,0 +1,18 @@
+---
+- name: Cloud-1 - Application Deployment
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Validate required envars
+      assert:
+        that:
+          - lookup('env', 'DB_ROOT_PASSWORD') != ''
+          - lookup('env', 'DB_PASSWORD') != ''
+          - lookup('env', 'WP_ADMIN_PASSWORD') != ''
+          - lookup('env', 'WP_USER_PASSWORD') != ''
+        fail_msg: "Required environment variables not set"
+
+  roles:
+    - cloudone

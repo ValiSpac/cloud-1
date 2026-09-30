@@ -1,0 +1,16 @@
+---
+- name: Cloud-1 - Server Setup
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - common
+    - docker
+    - firewall
+
+  post_tasks:
+    - name: Setup complete message
+      debug:
+        msg: |
+          Server setup complete! Run 'ansible-playbook playbooks/deploy.yml' to deploy the application

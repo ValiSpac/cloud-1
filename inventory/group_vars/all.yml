@@ -1,0 +1,56 @@
+---
+# app settings
+app_name: cloudone
+app_root: /opt/cloudone
+data_root: /opt/cloudone/data
+
+# domain config - set DOMAIN_NAME env var or it defaults to server IP
+domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default(ansible_host, true) }}"
+
+# dockercompose Settings
+compose_project_name: cloudone
+
+# db config
+mysql_database: wordpress
+mysql_user: wpuser
+# passwords come from envvars
+mysql_root_password: "{{ lookup('env', 'DB_ROOT_PASSWORD') }}"
+mysql_password: "{{ lookup('env', 'DB_PASSWORD') }}"
+
+# wp config
+wp_title: "Cloud-1 WordPress Site"
+wp_admin_user: admin
+wp_admin_password: "{{ lookup('env', 'WP_ADMIN_PASSWORD') }}"
+wp_admin_email: "admin@{{ domain_name }}"
+wp_user: author
+wp_user_email: "author@{{ domain_name }}"
+wp_user_password: "{{ lookup('env', 'WP_USER_PASSWORD') }}"
+wp_locale: en_US
+
+# PHP config
+php_fpm_port: 9000
+server_max_body: 64M
+
+# redis config
+redis_host: redis
+redis_port: 6379
+
+# SSL config
+nginx_ssl_dir: /etc/nginx/certs
+
+# data
+db_host_path: "{{ data_root }}/db"
+wp_host_path: "{{ data_root }}/wp"
+
+# ufw config
+firewall_allowed_tcp_ports:
+  - "22"    # ssh port
+  - "80"    # http
+  - "443"   # https
+
+# restricted ports (access via tunnel, ssh -L 8081:localhost:8081 root@server)
+firewall_restricted_ports:
+  - "8081"  # phpmyadmin
+
+# disallow ftp
+enable_ftp: false
